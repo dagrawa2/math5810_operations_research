@@ -1,0 +1,184 @@
+\documentclass[12pt, a4paper, notitlepage]{report}
+
+%    These packages are necessary -- do not delete
+\usepackage[utf8]{inputenc}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{listingsutf8}
+% GLPK definitions for listings package due to 
+% Brooks Moses, http://puszcza.gnu.org.ua/users/brooks
+% available under the GNU General Public License 
+\usepackage{lstlang05} %Syntax file
+% lstlang5.sty must be in same folder as this .tex file
+% Eric Anderson added some keywords like 'display'
+
+%    Any Additional Packages should be placed here
+
+\usepackage{amsmath, amsfonts}
+
+\newcommand{\EE}{\mathbb{E}}
+\newcommand{\RR}{\mathbb{R}}
+
+
+%    These define the report style -- DO NOT MODIFY
+\AtBeginDocument{\renewcommand{\abstractname}{Executive Summary}}
+\renewcommand{\thesection}{\arabic{section}.  }
+
+\lstset{
+	inputencoding=utf8/latin1,
+		basicstyle=\ttfamily,
+		commentstyle=\color[RGB]{20,20,100},
+		language=ampl,
+		breaklines=true
+}
+
+%    Enter your information 
+\title{Operations Research: MATH 5810-001 \\
+       1.3.1. Largest Ball in a Polyhedron }  %From Problems List 
+\author{Devanshu Agrawal}  % Your name
+\date{November 23, 2015}  %Month Day Year of project submission
+
+
+\begin{document}
+
+\maketitle
+
+%Include an executive summary in abstract environment
+\begin{abstract}
+A polyhedron is a solid convex region in space with flat faces or sides. By ``convex'', we mean that any line segment connecting two points in the polyhedron is itself contained in the polyhedron. Examples of polyhedra in two dimensions include squares, triangles, pentagons, etc. Examples of polyhedra in three dimensions include cubes, tetrahedrons (pyramids), octahedrons, etc. Note that in mathematics, a polyhedron is not required to be bounded. For example, an infinitely tall prism with no top or bottom is a polyhedron.
+
+In this report, we describe a solution to the following problem: Find the largest ball that can fit inside a given polyhedron. In particular, find the maximum radius that a ball inside the polyhedron can have, and find the center of one such largest ball.
+
+Our solution is a linear program that can be solved for any given polyhedron. We implemented our linear program in the modeling language GLPK. We tested our program for a tetrahedron (a ``pyramid'' with four triangular faces) and obtained reasonable results.
+\end{abstract}
+
+\newpage % Do not delete
+
+%            The following sections are required         %
+% 1. Problem Statement
+% 2. Background and Resources
+% 3. Description of General Solution
+% 4. Application to the Specific Context
+% 5. Interpretations and Conclusions
+% Bibliography
+% A1. Code for the General Solution
+% A2. Additional Supplements (if necessary)
+%            Further Instructions in each Section        %
+\section{Problem Description}
+% Describe in detail the problem as you understand it, concluding
+% with a statement of precisely what your solution will address
+
+Let $\EE^n$ be $n$-dimensional Euclidean space (see Section \ref{background} for an explanation). Given vectors $a_1,\ldots,a_m\in\EE^n$ and scalars $b_1,\ldots,b_m\in\RR$, define the polyhedron
+\[ P = \{x\in\EE^n: a_i^\top x \leq b_i \mbox{ for } i=1,\ldots,m\}. \]
+Find the largest ball
+\[ B_r(p) = \{x\in\EE^n: \|x-p\| \leq r\} \]
+that is contained in $P$. In other words, find the largest radius $r$ such that $B_r(p)\subset P$ for some center $p$. Apply the general solution to the three-dimensional tetrahedron with vertices $(0,0,0)$, $(1,0,0)$, $(2,5,0)$, and $(1,6,1)$.
+
+Our general solution is a linear program that returns the radius $r$ and center $p$ of the largest ball contained in a given polyhedron $P$. We solve our linear program for the tetrahedron example described above.
+
+\section{Background and Resources} \label{background}
+% Describe the background necessary for understanding your solution
+% In particular, include references for any material or information
+% not original to you (On the part due on the last day of class, 
+% if you use anything due to somebody else -- me or another course or 
+% even a fellow student -- without citing it in this section, then 
+% the result will be failure of the course. Yes it is that serious.)
+
+Euclidean space $\EE^n$ is the real vector space $\RR^n$ equipped with the Euclidean norm $\|\cdot\|$ induced by the ordinary dot product.
+
+A linear program is an optimization problem of the form
+\[ \mbox{Minimize } z = c_1x_1+\cdots+c_nx_n \mbox{ subject to } \]
+\begin{align*}
+a_{11}x_1 + \cdots + a_{1n}x_n &\leq b_1 \\
+a_{21}x_1 + \cdots + a_{2n}x_n &\leq b_2 \\
+\vdots \quad \vdots \quad \vdots &\leq \vdots \\
+a_{m1}x_1 + \cdots + a_{mn}x_n &\leq b_m.
+\end{align*}
+
+\section{Description of General Solution} \label{solution}
+% A description of how your proposed solution would be applied to 
+% any problem of this type. In particular, your solution should be 
+% independent of the data or any numerical parameters.  
+
+Let $P\subset\EE^n$ be a polyhedron as defined in the problem statement. For every $i=1,\ldots,m$, define the hyperplane
+\[ P_i = \{x\in\EE^n: a_i^\top x = b_i\}. \]
+Observe that
+\[ a_i^\top\left(\frac{b_i}{\|a_i\|^2} a_i\right)
+= \frac{b_i(a_i^\top a_i)}{\|a_i\|^2}
+= \frac{b_i\|a_i\|^2}{\|a_i\|^2}
+= b_i. \]
+Thus, $\frac{b_i}{\|a_i\|^2} a_i\in P_i$. Note $\frac{a_i}{\|a_i\|}$ is a unit vector orthogonal to $P_i$. Since $\frac{b_i}{\|a_i\|^2} a_i = \frac{b_i}{\|a_i\|}\left(\frac{a_i}{\|a_i\|}\right)$, then the component of $\frac{b_i}{\|a_i\|^2} a_i$ orthogonal to $P_i$ is $\frac{b_i}{\|a_i\|}$.
+
+Let $p\in P$. The component of $p$ orthogonal to $P_i$ is $\frac{a_i^\top p}{\|a_i\|}$. Therefore, the distance from $p$ to $P_i$ is given by
+\[ \lvert\frac{b_i}{\|a_i\|} - \frac{a_i^\top p}{\|a_i\|}\rvert. \]
+But since $p\in P$, then $a_i^\top p \leq b_i$. Thus, $b_i-a_i^\top p \geq 0$, and hence the distance from $p$ to $P_i$ is simply
+\[ \frac{b_i}{\|a_i\|} - \frac{a_i^\top p}{\|a_i\|}. \]
+
+For a ball $B_r(p)$ to be contained in $P$, we require $r$ to satisfy
+\[ 0 \leq r \leq \frac{b_i}{\|a_i\|} - \frac{a_i^\top p}{\|a_i\|},
+\mbox{ for all } i=1,\ldots,m. \]
+
+To find the maximum feasible value of $r$, we therefore have the following linear program:
+\[ \mbox{Maximize } r \mbox{ subject to } \]
+\begin{align*}
+\|a_i\|r + a_i^\top p &\leq b_i
+\quad (i=1,\ldots,m) \\
+r &\geq 0.
+\end{align*}
+
+Note that $r\geq 0$ guarantees that $a_i^\top p\leq b_i$ and hence $p\in P$.
+
+See Section \ref{code} for the implementation of the above linear program in GLPK.
+
+\section{Application to the Specific Context} \label{application}
+% Describe how your solution in the previous section will be 
+% applied to the specific context as defined by the given
+% data, parameter values, and application context
+
+Consider the tetrahedron $T\subset\EE^3$ defined by the vertices $(0,0,0)$, $(1,0,0)$, $(2,5,0)$, and $(1,6,1)$. This tetrahedron is therefore defined by four planes $P_i$, $i=1,2,3,4$. To apply the general solution from Section \ref{solution} to $T$, we must first express each plane $P_i$ by an equation of the form $a_i^\top x = b_i$, where $a_i$ is a vector normal to $P_i$ and $b_i$ is the scalar off-set of $P_i$ from the origin.
+
+Define the planes $P_i$, $i=1,2,3,4$, such that
+\begin{align*}
+(0,0,0), (1,6,1), (2,5,0) &\in P_1 \\
+(0,0,0), (2,5,0), (1,0,0) &\in P_2 \\
+(0,0,0), (1,0,0), (1,6,1) &\in P_3 \\
+(2,5,0), (1,0,0), (1,6,1) &\in P_4.
+\end{align*}
+
+The normal vector $a_i$ is obtained as a cross product of two vectors in $P_i$. The order of the cross product is chosen such that the tetrahedron $T$ has an outward orientation; i.e., $a_i$ points ``out of'' $T$. We therefore have:
+\begin{align*}
+a_1^\top &= (1,6,1)\times (2,5,0) = (-5,2,-7) \\
+a_2^\top &= (2,5,0)\times (1,0,0) = (0,0,-5) \\
+a_3^\top &= (1,0,0)\times (1,6,1) = (0,-1,6) \\
+a_4^\top &= [(2,5,0)-(1,0,0)]\times [(1,6,1)-(1,0,0)] = (5,-1,6).
+\end{align*}
+
+Since the planes $P_1$, $P_2$, and $P_3$ contain the origin, then $b_1=b_2=b_3=0$. Since $P_4$ contains $(1,0,0)$, then
+\[ b_4 = a_4^\top (1,0,0)^\top = 5. \]
+
+We applied our general solution to the tetrahedron $T$ with associated normal vectors $a_i$ and scalar off-sets $b_i$ as computed above. We found that the maximum radius for a ball contained in $T$ is $r\approx 0.11965$. We found that the center of one such largest ball is $p\approx (0.95714, 1.44570, 0.11965)$.
+
+\section{Interpretations and Conclusions}
+% Interpret the solution outcomes in the previous section with
+% respect to the original problem statement.  Draw any 
+% conclusions which may be appropriate. 
+
+Visually, the answer obtained in Section \ref{application} for the largest ball in a particular tetrahedron appears reasonable (Figure \ref{figure}). We therefore conclude that our algorithm (i.e., our general solution) for finding the largest ball inside a given polyhedron is effective. Future work will include testing the algorithm for other examples of polyhedra.
+
+\begin{figure}
+\centering
+\includegraphics[height=1.5in]{fig.jpg}
+\caption{\label{figure} Image of the largest ball (red) contained in the tetrahedron (green) defined in Section \ref{application}. The front face of the tetrahedron has been removed to show the ball inside.}
+\end{figure}
+
+
+\appendix
+\renewcommand{\thesection}{A\arabic{section}.  }
+
+\section{Code for the General Solution} \label{code}
+% You can cut/paste your code, or you can upload a file
+% For file upload, uncomment next line and delete the rest 
+\lstinputlisting{LargestBallCode.mod}
+
+\end{document}

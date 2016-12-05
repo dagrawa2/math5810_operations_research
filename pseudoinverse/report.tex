@@ -1,0 +1,175 @@
+\documentclass[12pt, a4paper, notitlepage]{report}
+
+%    These packages are necessary -- do not delete
+\usepackage[utf8]{inputenc}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{listingsutf8}
+% GLPK definitions for listings package due to 
+% Brooks Moses, http://puszcza.gnu.org.ua/users/brooks
+% available under the GNU General Public License 
+\usepackage{lstlang05} %Syntax file
+% lstlang5.sty must be in same folder as this .tex file
+% Eric Anderson added some keywords like 'display'
+
+%    Any Additional Packages should be placed here
+
+\usepackage{amsmath, amsfonts}
+
+\newcommand{\RR}{\mathbb{R}}
+
+
+%    These define the report style -- DO NOT MODIFY
+\AtBeginDocument{\renewcommand{\abstractname}{Executive Summary}}
+\renewcommand{\thesection}{\arabic{section}.  }
+
+\lstset{
+	inputencoding=utf8/latin1,
+		basicstyle=\ttfamily,
+		commentstyle=\color[RGB]{20,20,100},
+		language=ampl,
+		breaklines=true
+}
+
+%    Enter your information 
+\title{Operations Research: MATH 5810-001 \\
+       1.2.2. Computing a Pseudoinverse using the Infinity Norm }  %From Problems List 
+\author{Devanshu Agrawal}  % Your name
+\date{November 16, 2015}  %Month Day Year of project submission
+
+
+\begin{document}
+
+\maketitle
+
+%Include an executive summary in abstract environment
+\begin{abstract}
+A matrix is an array of numbers that describes a deformation of coordinate space. Matrices form an algebra, and hence it is possible to write equations involving sums and products of matrices. In order to solve such equations, it is often necessary to compute the multiplicative inverse of a matrix or to ``invert'' a matrix. The inverse of a matrix is a matrix whose product with the original matrix is the identity matrix. The identity matrix is simply the matrix whose product with any other matrix is just that matrix.
+
+Unfortunately, it turns out that every matrix is not invertible. The next best thing, however, is a pseudoinverse, and every matrix has a pseudoinverse.
+
+In this report, we address the problem of computing a pseudoinverse given any matrix (invertible or not). We do this by making the product of a matrix with its pseudoinverse as close as possible to the identity matrix. ``Closeness'' is measured by the infinity norm, which measures the maximum stretching that a matrix causes on coordinate space.
+
+We show that the problem is a linear optimization problem. Our solution is an algorithm that purports to return the pseudoinverse of any given matrix. We implemented our algorithm in the modeling language GLPK and tested it by computing a pseudoinverse of an example matrix that is not invertible.
+
+Our solution for the pseudoinverse of the example non-invertible matrix disagreed with the pseudoinverse obtained from other matrix algebra software. But we found that our algorithm does produce correct pseudoinverses for invertible matrices that we tested. We conclude that our algorithm produces solutions that minimize the infinity norm as desired, but in the case of non-invertible matrices, our solutions do not always coincide with the pseudoinverses obtained from other methods.
+\end{abstract}
+
+\newpage % Do not delete
+
+%            The following sections are required         %
+% 1. Problem Statement
+% 2. Background and Resources
+% 3. Description of General Solution
+% 4. Application to the Specific Context
+% 5. Interpretations and Conclusions
+% Bibliography
+% A1. Code for the General Solution
+% A2. Additional Supplements (if necessary)
+%            Further Instructions in each Section        %
+\section{Problem Description}
+% Describe in detail the problem as you understand it, concluding
+% with a statement of precisely what your solution will address
+
+Let $A$ be any square matrix; $A$ can be invertible or non-invertible. The problem is to compute a pseudoinverse $X$ for $A$ by minimizing the infinity norm $\|I-AX\|_\infty$ as a function of $X$. The general solution to this problem must then be applied to compute a pseudoinverse of the non-invertible matrix
+\[ A =
+\begin{bmatrix}
+1 & 2 & 3 & 4 \\
+2 & 3 & 4 & 5 \\
+3 & 4 & 5 & 6 \\
+4 & 5 & 6 & 7
+\end{bmatrix}. \]
+
+The solution to the problem will be an algorithm that computes the pseudoinverse of a matrix by minimizing an infinity norm as described in the problem statement. A pseudoinverse for the above example matrix is then obtained.
+
+\section{Background and Resources}
+% Describe the background necessary for understanding your solution
+% In particular, include references for any material or information
+% not original to you (On the part due on the last day of class, 
+% if you use anything due to somebody else -- me or another course or 
+% even a fellow student -- without citing it in this section, then 
+% the result will be failure of the course. Yes it is that serious.)
+
+Let $M_n(\RR)$ be the set of all $n\times n$ matrices with real entries. Let $I\in M_n(\RR)$ be the $n\times n$ identity matrix. Given a matrix $A\in M_n(\RR)$, let $a_{ij}$ be the $(i,j)$th entry of $A$. The infinity norm of $A$ is defined by
+\[ \|A\|_\infty = \max_{i=1}^n \sum_{j=1}^n |a_{ij}|. \]
+
+We will solve the problem by setting up a linear program. A linear program is an optimization problem of the form
+\[ \mbox{Minimize } z = c_1x_1+\cdots+c_nx_n \mbox{ subject to } \]
+\begin{align*}
+a_{11}x_1 + \cdots + a_{1n}x_n &\leq b_1 \\
+a_{21}x_1 + \cdots + a_{2n}x_n &\leq b_2 \\
+\vdots \quad \vdots \quad \vdots &\leq \vdots \\
+a_{m1}x_1 + \cdots + a_{mn}x_n &\leq b_m.
+\end{align*}
+
+We will solve our linear program using the modeling language GLPK.
+
+\section{Description of General Solution}
+% A description of how your proposed solution would be applied to 
+% any problem of this type. In particular, your solution should be 
+% independent of the data or any numerical parameters.  
+
+Let $A\in M_n(\RR)$ be a matrix with entries $a_{ij}$. Let $I\in M_n(\RR)$ be the identity matrix with entries $\delta_{ij}=1$ if $i=j$ and $\delta_{ij}=0$ otherwise. Let $X\in M_n(\RR)$ be a variable matrix with entries $x_{ij}$. Define the additional variables $\nu$ and $\mu_{ij}$, $i,j=1,\ldots,n$. We claim that an optimal solution $X$ that minimizes $\|I-AX\|_\infty$ can be obtained as an optimal solution to the following linear program:
+\[ \mbox{Minimize } z=\nu \mbox{ subject to } \]
+\begin{align*}
+\delta_{ij} - \sum_{k=1}^n a_{ik}x_{kj} &\leq \mu_{ij} (i,j=1,\ldots, n) \tag{Constraint I} \\
+-\delta_{ij} + \sum_{k=1}^n a_{ik}x_{kj} &\leq \mu_{ij} (i,j=1,\ldots,n) \tag{Constraint II} \\
+\sum_{j=1}^n \mu_{ij} &\leq \nu (i=1,\ldots,n). \tag{Constraint III}
+\end{align*}
+
+To prove our claim, suppose $X$ is an optimal solution to the above linear program. The matrix $U=I-AX$ has entries
+\[ u_{ij} = \delta_{ij}-\sum_{k=1}^n a_{ik}x_{kj}, \]
+where the sum over $k$ performs matrix multiplication. By Constraints I and II, we have
+\[ |u_{ij}| \leq \mu_{ij}, \quad (i,j=1,\ldots,n). \]
+Summing both sides over $j$, we have
+\[ \sum_{j=1}^n |u_{ij}| \leq \sum_{j=1}^n \mu_{ij}, \quad (i=1,\ldots,n). \]
+By Constraint III, we have
+\[ \sum_{j=1}^n |u_{ij}| \leq \nu, \quad (i,j=1,\ldots,n). \]
+Since this holds for all $i$, then
+\[ \max_{i=1}^n\sum_{j=1}^n |u_{ij}| \leq \nu. \]
+Recalling the definition of infinity norm, we have $\|U\|_\infty=\|I-AX\|_\infty\leq \nu$. Since $\nu$ is minimized, then clearly $\|I-AX\|_\infty$ is minimized as well.
+
+We implemented our linear program in GLPK (see \ref{code} for the code).
+
+\section{Application to the Specific Context}
+% Describe how your solution in the previous section will be 
+% applied to the specific context as defined by the given
+% data, parameter values, and application context
+
+Solving our linear program for the matrix
+\[ A =
+\begin{bmatrix}
+1 & 2 & 3 & 4\\
+2 & 3 & 4 & 5 \\
+3 & 4 & 5 & 6 \\
+4 & 5 & 6 & 7
+\end{bmatrix}, \]
+we obtained the following solution:
+\[ X =
+\begin{bmatrix}
+0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0 \\
+0 & 0 & 0 & 0
+\end{bmatrix}. \]
+
+\section{Interpretations and Conclusions}
+% Interpret the solution outcomes in the previous section with
+% respect to the original problem statement.  Draw any 
+% conclusions which may be appropriate. 
+
+We found that our solution for the example matrix $A$ given in the preceding section disagrees with the pseudoinverse returned by the ``pinv'' function in numpy (a package for the programming language python). We found, however, that our algorithm produces correct results for invertible matrices; if $A$ is an invertible matrix, then the pseudoinverse of $A$ returned by our algorithm agrees with the true inverse of $A$ (this is true for at least a few examples that we tested). Therefore, we believe that our algorithm is to a large extent correct. While $X=0$ for the example matrix $A$ in the preceding section is an optimal solution, we suspect that the correct pseudoinverse of $A$ is a different optimal solution. Our task for the future is therefore to see whether it is possible to move between optimal solutions until the true pseudoinverse for a matrix is obtained.
+
+
+\appendix
+\renewcommand{\thesection}{A\arabic{section}.  }
+
+\section{Code for the General Solution} \label{code}
+% You can cut/paste your code, or you can upload a file
+% For file upload, uncomment next line and delete the rest 
+
+\lstinputlisting{PseudoinverseCode.mod}
+
+
+\end{document}

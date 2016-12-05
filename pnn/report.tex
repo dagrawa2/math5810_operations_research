@@ -1,0 +1,249 @@
+\documentclass[12pt, a4paper, notitlepage]{report}
+
+%    These packages are necessary -- do not delete
+\usepackage[utf8]{inputenc}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{listingsutf8}
+% GLPK definitions for listings package due to 
+% Brooks Moses, http://puszcza.gnu.org.ua/users/brooks
+% available under the GNU General Public License 
+\usepackage{lstlang05} %Syntax file
+% lstlang5.sty must be in same folder as this .tex file
+% Eric Anderson added some keywords like 'display'
+
+%    Any Additional Packages should be placed here
+
+\usepackage{amsmath, amsfonts}
+\usepackage{url}
+
+\newcommand{\RR}{\mathbb{R}}
+
+
+%    These define the report style -- DO NOT MODIFY
+\AtBeginDocument{\renewcommand{\abstractname}{Executive Summary}}
+\renewcommand{\thesection}{\arabic{section}.  }
+
+\lstset{
+	inputencoding=utf8/latin1,
+		basicstyle=\ttfamily,
+		commentstyle=\color[RGB]{20,20,100},
+		language=ampl,
+		breaklines=true
+}
+
+%    Enter your information 
+\title{Operations Research: MATH 5810-001 \\
+   2.2. A Polyhedral Neural Network Classifier }  %From Problems List 
+\author{Devanshu Agrawal}  % Your name
+\date{December 4, 2015}  %Month Day Year of project submission
+
+
+\begin{document}
+
+\maketitle
+
+%Include an executive summary in abstract environment
+\begin{abstract}
+Consider a data set in which every point belongs to one of two ``classes''. A classifier is an algorithm that ``learns'' from the data set and then predicts the classes of new points not in the data set. If the data set is visualized as a scatter plot of points in coordinate space, then a classifier draws a ``decision boundary'' that best separates the two classes of points. The classifier can then predict the class of a new point not in the data set by simply checking to see on which side of the decision boundary the new point lies.
+
+A polyhedron is a convex region in coordinate space with flat faces. By ``convex'', we mean that the line segment between any two points in the region is itself contained in the region. Examples of polyhedra in two dimensions include triangles, squares, pentagons, etc. In fact, polyhedra may be unbounded; for example, the region between two parallel lines in two dimensions is a polyhedron.
+
+In this report, we describe the construction and implementation of a polyhedral neural network (PNN). A PNN is a classifier that draws a decision boundary that is also the boundary of a polyhedron. In other words, a PNN learns from a set of data (consisting of two classes of points) and produces a polyhedron so that one class of points is contained inside the polyhedron and the other class of points resides outside the polyhedron. The separation is not necessarily perfect but is instead only a best possible separation.
+
+Our PNN produces a polyhedral decision boundary by minimizing the total cost incurred from data points that are misclassified by the PNN. Our PNN is therefore the solution to a linear optimization problem and takes the form of a linear program. We implemented our PNN algorithm in the programming language Maple.
+
+We applied our PNN to an example data set consisting of twenty points selected at random from a square in the standard coordinate plane (these twenty points comprise one class) and twenty points selected at random outside the square but contained in a larger square in the coordinate plane (these twenty points comprise the second class). Our PNN returned a triangular decision boundary that appeared to separate the two classes of points very well.
+\end{abstract}
+
+\newpage % Do not delete
+
+%            The following sections are required         %
+% 1. Problem Statement
+% 2. Background and Resources
+% 3. Description of General Solution
+% 4. Application to the Specific Context
+% 5. Interpretations and Conclusions
+% Bibliography
+% A1. Code for the General Solution
+% A2. Additional Supplements (if necessary)
+%            Further Instructions in each Section        %
+\section{Problem Description} \label{Problem}
+% Describe in detail the problem as you understand it, concluding
+% with a statement of precisely what your solution will address
+
+Consider a set of data $D = \{x_i\in\RR^N:i=1,\ldots,M\}$ that can be partitioned into two classes $C_1=\{x_1,\ldots,x_p\}$ and $C_{-1}=\{x_{p+1},\ldots,x_M\}$. Given an integer $1\leq K\leq M$, the first part of the problem is to find a polyhedron
+\[ P = \{x\in\RR^N: \alpha_k^\top x\geq \beta_k, k=1,\ldots,k\}, \quad
+(\alpha_k\in\RR^N, \beta_k\in\RR) \]
+that satisfies $C_1\subset P$ and $C_{-1}\subset \RR^N\setminus P$ to the greatest extent possible. In other words, the problem is to find a polyhedron $P$ that best separates the two classes of data points, with points in $C_1$ contained in $P$ and points in $C_{-1}$ outside of $P$. Our solution is a PNN algorithm that returns such a polyhedron $P$ as a function of the data set $D$.
+
+The second part of the problem is to apply the general solution (i.e., the PNN) to an example data set consisting of 20 points selected at random from the square $[1, 2]^2$ (class $C_1$) and 20 points selected at random from the region $[0,3]^2\setminus [1,2]^2$ (class $C_{-1}$). We present the solution to this example as a plot that shows a polyhedral decision boundary that separates $C_1$ and $C_{-1}$.
+
+\section{Background and Resources} \label{Background}
+% Describe the background necessary for understanding your solution
+% In particular, include references for any material or information
+% not original to you (On the part due on the last day of class, 
+% if you use anything due to somebody else -- me or another course or 
+% even a fellow student -- without citing it in this section, then 
+% the result will be failure of the course. Yes it is that serious.)
+
+A data point is often a list of values or ``features'' that characterize the point (e.g., an $8\times 8$-pixel image is a list of $64$ pixel intensities). The space of all possible lists of features (e.g., the space of all $8\times 8$-pixel images) is called a \emph{feature space}. A data set is therefore a sample of a feature space. Consider a data set that is partitioned into two classes of points (e.g., each data point is an image of either Alice or Bob). A \emph{classifier} is an algorithm that \emph{learns} from the data set and constructs a \emph{decision boundary} that best separates the two classes of data points. The classifier can then predict the class of a point in the feature space not in the data set based on the side of the decision boundary on which the point is located.
+
+A simple example of a classifier is the \emph{hyperplane classifier}. We will find it worthwhile to examine the hyperplane classifier in some detail. Our exposition is based on \cite{LBC}. Let $D = \{x_i\in\RR^N: i=1,\ldots,M\}$ be a data set of points from the feature space $\RR^N$, and suppose $D$ is partitioned into two classes $C_1 = \{x_1,\ldots,x_p\}$ and $C_{-1}=\{x_{p+1},\ldots,x_M\}$. Let $y_i=j$ if $x_i\in C_j$; thus, $y_i$ is the \emph{class label} of $x_i$. A \emph{half-space} in $\RR^N$ is a set of the form
+\[ H = \{x\in\RR^N: \alpha^\top x\geq \beta\}, \quad
+(\alpha\in\RR^N, \beta\in\RR). \]
+The boundary of a half-space is a hyperplane. A hyperplane classifier applied to the data set $D$ returns a half-space $H$ that satisfies $C_1\subseteq H$ and $C_{-1}\subseteq\RR^N\setminus H$ to the greatest extent possible (so that the boundary of $H$ best separates $C_1$ and $C_{-1}$). Ideally, $\alpha$ and $\beta$ (which define $H$) satisfy
+\[ \begin{cases}
+\alpha^\top x_i > \beta, & \mbox{ if } x_i\in C_1. \\
+\alpha^\top x_i < \beta, & \mbox{ if } x_i\in C_{-1}.
+\end{cases} \]
+More concisely, we can write
+\[ y_i(\alpha^\top x_i-\beta_i) > 0, \quad\forall i=1,\ldots,M. \]
+But often $C_1$ and $C_{-1}$ cannot be separated perfectly. Therefore, we only require that $H$ separate $C_1$ and $C_{-1}$ to the greatest extent possible. In particular, we only require $\alpha$ and $\beta$ to solve the following linear program:
+\[ \min_{\alpha,\beta,\xi_i} J = \sum_{i=1}^M \xi_i \mbox{ s.t.} \]
+\begin{align*}
+\xi_i &\geq 0, \quad\forall i=1,\ldots,M \\
+y_i(\alpha^\top x_i-\beta) &\geq 1-\xi_i, \quad\forall i=1,\ldots,M,
+\end{align*}
+or equivalently,
+\[ \min_{\alpha,\beta,\xi_i} J = \sum_{i=1}^M \xi_i \mbox{ s.t.} \tag{LP1} \]
+\begin{align*}
+0 &\leq \xi_i, \quad\forall i=1,\ldots,M \\
+1-y_i(\alpha^\top x_i-\beta) &\leq \xi_i, \quad\forall i=1,\ldots,M.
+\end{align*}
+
+Define the \emph{hinge loss function} $(\cdot)_+:\RR\mapsto\RR^{\geq 0}$ by $(z)_+ = \max(0, z)$. Then, the variables $\xi_i$ in LP1 satisfy the constraint
+\begin{equation} \label		{hinge}
+(1-y_i(\alpha^\top x_i-\beta))_+ \leq \xi_i, \quad\forall i=1,\ldots,M.
+\end{equation}
+If the half-space $H$ classifies $x_i$ correctly, then $\alpha$ and $\beta$ have values such that $(1-y_i(\alpha^\top x_i-\beta))_+=0$. But if $H$ classifies $x_i$ incorrectly, then $(1-y_i(\alpha^\top x_i-\beta))_+>0$. By minimizing the objective $J$, we minimize each $\xi_i$. By Equation \ref{hinge}, the hyperplane classifier returns a half-space $H$ that minimizes the total cost incurred by data points $x_i$ that are misclassified by $H$.
+
+A \emph{polyhedral neural network} (PNN) is a natural extension of a hyperplane classifier. A \emph{polyhedron}  $P$ can be defined as the intersection of half-spaces: Given vectors $\alpha_k\in\RR^N$ and scalars $\beta_k\in\RR$ for $k=1,\ldots,K$, define the half-spaces
+\begin{equation} \label{H_k}
+H_k = \{x\in\RR^N: \alpha_k^\top x\geq \beta_k\}, \quad\forall k=1,\ldots,K.
+\end{equation}
+Then, the polyhedron $P$ is defined to be the set
+\begin{align}
+P &= \bigcap_{k=1}^K H_k \nonumber \\
+&= \{x\in\RR^N: \alpha_k^\top x \geq \beta_k, k=1,\ldots,K\}. \label{P}
+\end{align}
+A PNN is therefore implemented as a ``loop'' of hyperplane classifiers. This is the approach taken in \cite{Dundar}.
+
+A good classifier constructs a decision boundary that respects the general trend of the two classes of data. A classifier that classifies outlier points without respecting the general trend is said to \emph{overfit}. A \emph{regularizer} is a term that is often added to the objective function to reduce overfitting. for example, an \emph{$L^1$ regularizer} for the hyperplane classifier is a term that would be added to the objective function $J$ and would have the form
+\[ R (\|\alpha\|_1+\beta), \]
+where $R$ is the \emph{regularization parameter} that controls the influence of the regularizer and $\|\alpha\|_1$ is the \emph{$L^1$-norm} of $\alpha$ defined by
+\[ \|\alpha\|_1 = \sum_{j=1}^N |\alpha_j|, \]
+where $\alpha_j$ is the $j$th component of $\alpha$. The PNN described in \cite{Dundar} includes such a regularizer term.
+
+\section{Description of General Solution} \label{Solution}
+% A description of how your proposed solution would be applied to 
+% any problem of this type. In particular, your solution should be 
+% independent of the data or any numerical parameters.
+
+We maintain the notation introduced in Section 2. The PNN algorithm described in this section is a modification of the algorithm proposed in \cite{Dundar}.
+
+The PNN algorithm begins with some initial polyhedron $P$: For $k=1,\ldots,K$, select some random $\alpha_k\in\RR^N$ and $\beta_k\in\RR$, and define $P$ by Equation \ref{P}. The PNN algorithm then adjusts each face of the polyhedron $P$ over several cycles until $P$ provides a sufficiently accurate decision boundary. In particular, the values of $\alpha_k$ and $\beta_k$ (which define the half-space $H_k$ defined in Equation \ref{H_k}) are adjusted from their initial values until the total cost incurred from data points that are misclassified by $P$ is minimized.
+
+Define the additional variables $\xi_i$ for $i=1,\ldots,M$, and $\mu_j$ for $j=1,\ldots,N+1$. The PNN adjusts the values of $\alpha_\ell$ and $\beta_\ell$ (i.e., the $\ell$th face of $P$) to the values that solve the following linear program:
+\[ \min_{\alpha_\ell,\beta_\ell,\xi_i,\mu_j} J_\ell = R\sum_{j=1}^{N+1}\mu_j + \sum_{i=1}^p \xi_i + \sum_{i=p+1}^M w_i^\ell \xi_i
+\mbox{ s.t. } \tag{LP2} \]
+\begin{align*}
+G\gamma_i^\ell &\leq \xi_i, \quad\forall i=1,\ldots,p \tag{Constraint 1} \\
+0 &\leq \xi_i, \quad\forall i=p+1,\ldots,M \tag{Constraint 2} \\
+1-y_i(\alpha_\ell^\top x_i-\beta_\ell) &\leq \xi_i, \quad\forall i=1,\ldots,M \tag{Constraint 3} \\
+(\alpha_\ell)_j &\leq \mu_j, \quad\forall j=1,\ldots,n \tag{Constraint 4} \\
+-(\alpha_\ell)_j &\leq \mu_j, \quad\forall j=1,\ldots,N \tag{Constraint 5} \\
+\beta_\ell &\leq \mu_{N+1} \tag{Constraint 6} \\
+-\beta_\ell &\leq \mu_{N+1}, \tag{Constraint 7}
+\end{align*}
+where $G$ is the relaxation parameter (see below), $R$ is a regularization parameter, $(\alpha_\ell)_j$ is the $j$th component of the vector $\alpha_\ell$, and $\gamma_i^\ell$ and $w_i^\ell$ are defined by
+\begin{align*}
+\gamma_i^\ell &= \max\left(\{0\}\cup \{1-y_i(\alpha_k^\top x_i-\beta_k)\}_{k\neq\ell,k=1}^K\right) \\
+w_i^\ell &= \prod_{k\neq\ell,k=1}^K (1-y_i(\alpha_k^\top x_i-\beta_k))+.
+\end{align*}
+Since $\alpha_k$ and $\beta_k$ are constant in the linear program LP2 for $k\neq\ell$, then $\gamma_i^\ell$ and $w_i^\ell$ are constants.
+
+Before elaborating upon the linear program LP2, we summarize the PNN algorithm by the following informal pseudocode:
+
+\begin{verbatim}
+initialize P  # initial polyhedron
+
+for count from 1 to Iterates do  # Iterates is a positive integer
+    for l from 1 to K do
+        solve LP2  # solve the linear program
+    end do
+end do
+
+return P
+\end{verbatim}
+
+The above pseudocode returns a polyhedron that best separates the two classes of data. The parameter ``Iterates'' is chosen sufficiently large so that further adjustment of the polyhedron $P$ no longer leads to significant improvement.
+
+We now explain why the linear program LP2 is used to adjust the $\ell$th face of the polyhedron $P$ (or equivalently, the half-space$ H_\ell$):
+
+The first term in the objective $J_\ell$ and Constraints 4-7 together act as a regularizer. Constraints 4-5 imply
+\[ |(\alpha_\ell)_j| \leq \mu_j, \quad\forall j=1,\ldots,N, \]
+and Constraints 6-7 imply
+\[ |\beta_\ell| \leq \mu_{N+1}. \]
+Therefore, we have
+\[ \|\alpha_\ell\|_1+|\beta_\ell|
+= \sum_{j=1}^N |(\alpha_\ell)_j| + |\beta_\ell| \leq \sum_{j=1}^{N+1}\mu_j. \]
+By minimizing the objective $J_\ell$, we minimize each $\mu_j$ and hence the regularizer $R(\|\alpha_\ell\|_1+|\beta_\ell|)$.
+
+The second term in the objective $J_\ell$ and Constraints 1 and 3 are included to adjust the polyhedron $P$ so that $C_1\subseteq H_\ell$ is satisfied to a greater extent. Constraints 1 and 3 together imply
+\[ (1-y_i(\alpha_\ell^\top x_i-\beta_\ell))_+
+= \max\{0, 1-y_i(\alpha_\ell^\top x_i-\beta_\ell)\} \leq \xi_i, \quad\forall i=1,\ldots,p. \]
+By minimizing $J_\ell$, we minimize each $\xi_i$ for $i=1,\ldots,p$. Recalling the hyperplane classifier and in particular Equation \ref{hinge}, this implies that $H_\ell$ is adjusted so that points in $C_1$ are correctly classified by $H_\ell$. Since $LP2$ is solved for every $\ell=1,\ldots,K$, then all faces of $P$ are adjusted in this way.
+
+If a point $\xi_i\in C_1$ is classified incorrectly by at least one half-space $H_k$, then $1-y_i(\alpha_k^\top x_i-\beta_k)>0$ and hence $\gamma_i^\ell >0$. By Constraints 1 and 3, it follows that the upper bound on $1-y_i(\alpha_\ell^\top x_i-\beta_\ell)$ is relaxed. This means that if a point $\xi_i\in C_1$ is difficult to classify, then the PNN will ``relax'' its attempt to classify $\xi_i$ correctly. This ``relaxation'' scheme is used to reduce overfitting. The parameter $G$ in Constraint 2 controls the amount of relaxation and is restricted to $0\leq G\leq 1$.
+
+The third term in the objective $J_\ell$ and Constraints 2-3 are included to adjust $P$ so that $C_{-1}\subseteq \RR^N\setminus P$ is satisfied to a greater extent. Constraints 2-3 together imply
+\[ (1-y_i(\alpha_\ell^\top x_i-\beta_\ell))_+
+= \max\{0, 1-y_i(\alpha_\ell^\top x_i-\beta_\ell)\} \leq \xi_i, \quad\forall i=p+1,\ldots,M. \]
+Suppose $w_i^\ell >0$. Then, by minimizing $J_\ell$, we minimize $\xi_i$. By Equation \ref{hinge}, it follows that the half-space $H_\ell$ is adjusted so that $x_i\in \RR^N\setminus H_\ell$ and hence $x_i\notin P$. But suppose $x_i\in\RR^N\setminus H_k$ for some $k\neq\ell$. Then, $(1-y_i(\alpha_k^\top x_i-\beta_k))_+=0$ and hence $w_i^\ell=0$. In this case, the objective $J_\ell$ is independent of $\xi_i$. The overall effect is that if a point $x_i\in C_{-1}$ is excluded by at least one face of $P$, then there is no need to adjust the other faces to exclude the same point.
+
+We implemented the above algorithm in the programming language Maple. For the Maple code, see Section A1.
+
+\section{Application to the Specific Context} \label{Application}
+% Describe how your solution in the previous section will be 
+% applied to the specific context as defined by the given
+% data, parameter values, and application context
+
+We construct an example data set $D$ as follows: Randomly select points $x_1,\ldots,x_{20}\in [1,2]^2$ and $x_{21},\ldots,x_{40}\in [0,3]^2\setminus [1,2]^2$. The points $x_{21},\ldots,x_{40}$ can be generated by randomly selecting points in $[1,2]^2$ and then randomly selecting and adding a point from the finite set $\{(a,b)\}_{a,b=-1,0,1}-\{(0,0)\}$. Our data set is $D=\{x_1,\ldots,x_{40}\}$. The two classes of points in $D$ are $C_1=\{x_1,\ldots,x_{20}\}$ and $C_{-1}=\{x_{21},\ldots,x_{40}\}$.
+
+We applied a PNN on the data set $D$ with parameter values $R=0.01$ (regularization parameter), $G=0.5$ (relaxation parameter), $K=5$ (maximum number of faces possible for the polyhedron $P$), and ``Iterates'' $= 10$ (number of cycles over $k=1,\ldots,K$, or equivalently the number of times each face of $P$ is adjusted). The PNN returned a triangle as the polyhedron $P$ and hence a triangular decision boundary (Figure \ref{figure}).
+
+\begin{figure}
+\centering
+\includegraphics[height=3in]{fig.jpg}
+\caption{\label{figure} Plot of the polyhedron (light blue) returned by the PNN when applied to the two classes of points $C_1$ (blue) and $C_{-1}$ (red). The polyhedron is a triangle and therefore defines a triangular decision boundary.}
+\end{figure}
+
+\section{Interpretations and Conclusions}
+% Interpret the solution outcomes in the previous section with
+% respect to the original problem statement.  Draw any 
+% conclusions which may be appropriate. 
+
+The triangular decision boundary obtained for the example data set in Section \ref{Application} separates the two classes of data points very well (Figure \ref{figure}). Our implementation of a PNN classifier was therefore successful in the example application and might be extensible to other data sets as well.
+
+Because the data in the example application was generated inside square regions, then we might have expected the PNN to return a square decision boundary (in particular, the boundary of the square polyhedron $[1, 2]^2$). Even though we set the maximum possible number of faces to $K=5$, the PNN returned a triangular decision boundary. The triangle is a special polyhedron because it is the simplest polyhedron in two dimensions and is therefore also known as a $2$-simplex (at least three sides are needed in two dimensions to enclose nonzero and finite area). It appears then that our PNN might remain faithful to the ``simplicial topology'' of the feature space (i.e., the structure of space as a complex of triangles glued together) \cite{Knisley}.
+
+Upon further testing, we found that the relaxation parameter should be set to $G=1$ for a low number of faces ($K=3,4$) and $G=0.5$) for a higher number of faces ($K=5,6,7$). The relaxation parameter therefore plays an important role. We also found that for $K=6,7$, the decision boundary is quadrilateral (although this could change if we modify $G$ or the number of data points). Future work will therefore include further testing and investigation into the role of topology in the PNN.
+
+
+% references.bib must be in the same folder as this .tex file
+% references not necesssary for first two applications.  You can delete the next two lines until then. 
+\bibliographystyle{plain}
+\bibliography{PNNReferences}
+
+\appendix
+\renewcommand{\thesection}{A\arabic{section}.  }
+
+\section{Code for the General Solution} \label{Code}
+% You can cut/paste your code, or you can upload a file
+% For file upload, uncomment next line and delete the rest 
+
+\lstinputlisting{PNNMapleText.txt}
+
+\end{document}
